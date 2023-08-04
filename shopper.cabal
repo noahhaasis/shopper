@@ -69,7 +69,6 @@ executable shopper
                     , blaze-html
                     , bytestring
                     , scalpel
-                    , smtp-mail
 
     -- Directories containing source files.
     hs-source-dirs:   app

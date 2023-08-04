@@ -2,13 +2,20 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeOperators #-}
+{-
+ - Log failed http calls
+ - Progress bar
+ - Remember/Star button
+ -}
 module Main where
 
 import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString as BSL
 import Control.Applicative ((<|>))
-import Data.Maybe (fromMaybe, catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.List (find)
 import Data.String (fromString)
 import GHC.Generics (Generic)
@@ -17,7 +24,6 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 import Text.Blaze.Html.Renderer.Pretty (renderHtml)
 import Text.HTML.Scalpel
-
 
 data Listing = Listing
     { title :: String
@@ -53,7 +59,7 @@ scrapeSearch url = scrapeURL url searchS
       price <- text $ "p" @: [hasClass "aditem-main--middle--price-shipping--price"]
       link <- attr "href" $ "h2" // "a"
       -- TODO: Default image
-      image <- (attr "data-imgsrc" $ "div" @: [hasClass "imagebox"]) <|> (pure "")
+      image <- attr "src" "img" <|> pure ""
       return $ Listing title description price link image
 
 filterNewArticles :: [Search] -> [Search] -> [Search]
@@ -64,7 +70,6 @@ filterNewArticles newSearch oldSearch = filterSearch <$> newSearch
         Just (Search _ oldListings) -> Search url (filter (`notElem` oldListings) listings)
         Nothing -> Search url listings
     findOldSearch l = find ((== l) . url) oldSearch
-    
 
 readSearches :: IO [Search]
 readSearches = do
@@ -90,7 +95,7 @@ renderListing :: Listing -> H.Html
 renderListing Listing {..} = do
   H.h3 $ (((H.span $ H.toHtml price) ! A.style "color: red") <> H.toHtml title)
   (H.div $ do
-    H.a (H.img ! A.src (fromString image)) ! A.href (fromString ("https://www.ebay-kleinanzeigen.de" ++ link)) ! A.style "margin-right: 10px;"
+    H.a (H.img ! A.src (fromString image)) ! A.href (fromString ("https://www.kleinanzeigen.de" ++ link)) ! A.style "margin-right: 10px;"
     H.p $ H.toHtml description) ! A.style "display: flex"
 
 main :: IO ()
@@ -99,5 +104,6 @@ main = do
   newSearches <- catMaybes <$> (scrapeSearch `mapM` links)
   oldSearches <- readSearches
   writeSearches newSearches
-  writeFile "index.html" $ renderHtml $ renderResult $ filterNewArticles newSearches oldSearches
+  writeFile "./static/index.html" $ renderHtml $ renderResult $ filterNewArticles newSearches oldSearches
+
 
